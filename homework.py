@@ -133,7 +133,7 @@ def parse_status(homework):
 
 
 def handle_errors(e, last_msg, bot):
-    """Обрабатывает ошибки и отправляет сообщения в Telegram при необходимости."""
+    """Обрабатывает ошибки и отправляет сообщения в Telegram."""
 
     msg = str(e)
     logging.error(msg)
