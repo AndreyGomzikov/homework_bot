@@ -34,7 +34,6 @@ HOMEWORK_VERDICTS = {
 
 def check_tokens() -> list:
     """Проверяет доступность переменных окружения."""
-
     tokens = {
         "PRACTICUM_TOKEN": PRACTICUM_TOKEN,
         "TELEGRAM_TOKEN": TELEGRAM_TOKEN,
@@ -49,7 +48,6 @@ def check_tokens() -> list:
 
 def send_message(bot, message):
     """Отправляет сообщение в Telegram-чат."""
-
     logging.debug("Начинаем отправку сообщения в Telegram: %s", message)
     try:
         bot.send_message(TELEGRAM_CHAT_ID, message)
@@ -62,7 +60,6 @@ def send_message(bot, message):
 
 def get_api_answer(timestamp):
     """Делает запрос к единственному эндпоинту API-сервиса."""
-
     params = {"from_date": timestamp}
     request_info = {"url": ENDPOINT, "headers": HEADERS, "params": params}
 
@@ -93,7 +90,6 @@ def get_api_answer(timestamp):
 
 def check_response(response):
     """Проверяет ответ API на соответствие документации."""
-
     if not isinstance(response, dict):
         msg = "Ответ API должен быть словарем"
         raise exceptions.CheckResponseException(msg)
@@ -113,7 +109,6 @@ def check_response(response):
 
 def parse_status(homework):
     """Извлекает статус конкретной домашней работы."""
-
     homework_name = homework.get("homework_name")
     if homework_name is None:
         msg = "Отсутствует ключ homework_name"
@@ -134,7 +129,6 @@ def parse_status(homework):
 
 def handle_errors(e, last_msg, bot):
     """Обрабатывает ошибки и отправляет сообщения в Telegram."""
-
     msg = str(e)
     logging.error(msg)
     if last_msg != msg:
@@ -145,7 +139,6 @@ def handle_errors(e, last_msg, bot):
 
 def main():
     """Основная логика работы бота."""
-
     missing_tokens = check_tokens()
 
     if missing_tokens:
