@@ -208,7 +208,7 @@ def main():
                 except Exception:
                     logging.exception(
                         'Ошибка при отправке сообщения об ошибке'
-                        )
+                    )
 
         finally:
             time.sleep(RETRY_PERIOD)
