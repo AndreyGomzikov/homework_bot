@@ -206,7 +206,9 @@ def main():
                 try:
                     send_message(bot, msg)
                 except Exception:
-                    logging.exception('Ошибка при отправке сообщения об ошибке')
+                    logging.exception(
+                        'Ошибка при отправке сообщения об ошибке'
+                        )
 
         finally:
             time.sleep(RETRY_PERIOD)
