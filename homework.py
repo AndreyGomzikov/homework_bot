@@ -5,7 +5,6 @@ import time
 from http import HTTPStatus
 
 import requests
-import telebot
 from dotenv import load_dotenv
 from telebot import TeleBot
 
@@ -187,7 +186,7 @@ def main():
         try:
             params = {'from_date': timestamp}
             logging.debug('Параметры: {params}'.format(params=params))
-            
+
             response = get_api_answer(timestamp)
             homeworks = check_response(response)
 
