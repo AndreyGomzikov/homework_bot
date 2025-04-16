@@ -40,7 +40,10 @@ MESSAGE_SENT_SUCCESS = 'Сообщение успешно отправлено �
 MESSAGE_SEND_ERROR_DETAIL = 'Ошибка отправки сообщения в Telegram: {error}'
 
 SEND_MESSAGE_ATTEMPT = 'Попытка отправки сообщения в Telegram: {message}'
-API_REQUEST_START = 'Начинаем запрос к API: URL: {url}, Заголовки: {headers} Параметры: {params}'
+API_REQUEST_START = (
+    'Начинаем запрос к API: URL: {url}, '
+    'Заголовки: {headers}, Параметры: {params}'
+)
 NO_HOMEWORK_CHANGES = 'Нет изменений в статусе домашних работ.'
 REQUEST_PARAMETERS = 'Параметры: {params}'
 MESSAGE_SEND_ERROR = 'Ошибка при отправке сообщения об ошибке'
@@ -139,7 +142,8 @@ def check_response(response):
     """Проверяет ответ API на соответствие документации."""
     if not isinstance(response, dict):
         raise TypeError(
-            f'{RESPONSE_NOT_DICT_ERROR}. Получен тип: {type(response).__name__}'
+            f'{RESPONSE_NOT_DICT_ERROR}. '
+            f'Получен тип: {type(response).__name__}'
         )
 
     if 'homeworks' not in response:
@@ -148,7 +152,8 @@ def check_response(response):
     homeworks = response['homeworks']
     if not isinstance(homeworks, list):
         raise TypeError(
-            f'{HOMEWORKS_NOT_LIST_ERROR}. Получен тип: {type(homeworks).__name__}'
+            f'{HOMEWORKS_NOT_LIST_ERROR}. '
+            f'Получен тип: {type(homeworks).__name__}'
         )
 
     return homeworks
