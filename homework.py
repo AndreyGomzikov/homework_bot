@@ -132,17 +132,17 @@ def check_response(response):
     """Проверяет ответ API на соответствие документации."""
     def raise_type_error(message, obj_type):
         raise TypeError(f'{message}. Получен тип: {obj_type.__name__}')
-    
+
     if not isinstance(response, dict):
         raise_type_error(RESPONSE_NOT_DICT_ERROR, type(response))
-    
+
     if 'homeworks' not in response:
         raise ValueError(NO_HOMEWORKS_KEY_ERROR)
-    
+
     homeworks = response['homeworks']
     if not isinstance(homeworks, list):
         raise_type_error(HOMEWORKS_NOT_LIST_ERROR, type(homeworks))
-    
+
     return homeworks
 
 
