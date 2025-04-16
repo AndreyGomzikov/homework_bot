@@ -42,6 +42,7 @@ INVALID_STATUS = (
     'Допустимые статусы: {valid_statuses}'
 )
 MESSAGE_SENT_SUCCESS = 'Сообщение успешно отправлено в Telegram: {message}'
+MESSAGE_SEND_ERROR_DETAIL = 'Ошибка отправки сообщения в Telegram: {error}'
 
 SEND_MESSAGE_ATTEMPT = 'Попытка отправки сообщения в Telegram: {message}'
 API_REQUEST_START = 'Начинаем запрос к API: URL: {url}, Заголовки: {headers}'
@@ -68,20 +69,22 @@ HOMEWORK_VERDICTS = {
 def check_tokens():
     """Проверяет доступность переменных окружения и вызывает исключение."""
     required_tokens = ['PRACTICUM_TOKEN', 'TELEGRAM_TOKEN', 'TELEGRAM_CHAT_ID']
-    missing_tokens = [
-        name for name in required_tokens if not globals().get(name)]
-
+    missing_tokens = [name for name in required_tokens if not globals().get(name)]
     if missing_tokens:
-        msg = MISSING_TOKENS.format(tokens=missing_tokens)
-        logging.critical(msg)
-        raise RuntimeError(msg)
+        message = MISSING_TOKENS.format(tokens=missing_tokens)
+        logging.critical(message)
+        raise RuntimeError(message)
 
 
 def send_message(bot, message):
     """Отправляет сообщение в Telegram-чат."""
     logging.debug(SEND_MESSAGE_ATTEMPT.format(message=message))
-    bot.send_message(TELEGRAM_CHAT_ID, message)
-    logging.debug(MESSAGE_SENT_SUCCESS.format(message=message))
+    try:
+        bot.send_message(TELEGRAM_CHAT_ID, message)
+        logging.debug(MESSAGE_SENT_SUCCESS.format(message=message))
+    except Exception as error:
+        logging.error(MESSAGE_SEND_ERROR_DETAIL.format(error=error))
+        raise
 
 
 def get_api_answer(timestamp):
@@ -100,61 +103,46 @@ def get_api_answer(timestamp):
     try:
         response = requests.get(**request_info)
     except requests.RequestException as error:
-        error_message = API_REQUEST_ERROR.format(
-            error=str(error),
-            **request_info
-        )
-        raise ConnectionError(error_message)
+        raise ConnectionError(API_REQUEST_ERROR.format(error=error, **request_info))
 
-    if response.status_code == HTTPStatus.SERVICE_UNAVAILABLE:
-        error_message = SERVICE_UNAVAILABLE.format(
-            response_text=response.text[:200],
-            **request_info
-        )
-        raise requests.exceptions.RetryError(error_message)
-    elif response.status_code != HTTPStatus.OK:
+    if response.status_code != HTTPStatus.OK:
         error_message = INVALID_STATUS_CODE.format(
             code=response.status_code,
             response_text=response.text[:200],
             **request_info
         )
-        raise requests.exceptions.HTTPError(error_message)
+        raise ConnectionError(error_message)
 
     api_data = response.json()
 
-    if isinstance(api_data, dict):
-        for word in ('code', 'error'):
-            if word in api_data:
-                error_message = API_RETURNED_ERROR.format(
-                    details={
-                        'code': api_data.get('code'),
-                        'error': api_data.get('error'),
-                        'message': api_data.get('message', 'No message'),
-                        'request_params': request_info['params'],
-                        'response': api_data
-                    },
-                    **request_info
-                )
-                raise RuntimeError(error_message)
+    for key in ('code', 'error'):
+        if key in api_data:
+            detail = f"{key}: {api_data.get(key)}"
+            error_message = API_RETURNED_ERROR.format(
+                url=request_info['url'],
+                headers=request_info['headers'],
+                details=detail
+            )
+            raise RuntimeError(error_message)
 
     return api_data
 
 
 def check_response(response):
     """Проверяет ответ API на соответствие документации."""
+    def raise_type_error(message, obj_type):
+        raise TypeError(f'{message}. Получен тип: {obj_type.__name__}')
+    
     if not isinstance(response, dict):
-        raise TypeError(
-            f'{RESPONSE_NOT_DICT_ERROR}.'
-            f'Получен тип: {type(response).__name__}'
-        )
+        raise_type_error(RESPONSE_NOT_DICT_ERROR, type(response))
+    
     if 'homeworks' not in response:
         raise ValueError(NO_HOMEWORKS_KEY_ERROR)
+    
     homeworks = response['homeworks']
     if not isinstance(homeworks, list):
-        raise TypeError(
-            f'{HOMEWORKS_NOT_LIST_ERROR}.'
-            f'Получен тип: {type(homeworks).__name__}'
-        )
+        raise_type_error(HOMEWORKS_NOT_LIST_ERROR, type(homeworks))
+    
     return homeworks
 
 
@@ -169,6 +157,7 @@ def parse_status(homework):
         raise ValueError(
             INVALID_STATUS.format(
                 status=homework_status,
+                valid_statuses=', '.join(HOMEWORK_VERDICTS.keys())
             )
         )
     return STATUS_CHANGE.format(
@@ -177,10 +166,17 @@ def parse_status(homework):
     )
 
 
+def notify_error(bot, error_message):
+    """Отправляет сообщение об ошибке и логирует ошибки, возникающие при отправке."""
+    try:
+        bot.send_message(TELEGRAM_CHAT_ID, error_message)
+    except Exception as send_error:
+        logging.error(MESSAGE_SEND_ERROR_DETAIL.format(error=send_error))
+
+
 def main():
     """Основная логика работы бота."""
     check_tokens()
-
     bot = TeleBot(TELEGRAM_TOKEN)
     timestamp = int(time.time() - 2678400)
     last_msg = None
@@ -189,34 +185,21 @@ def main():
         try:
             response = get_api_answer(timestamp)
             homeworks = check_response(response)
-
             if homeworks:
                 message = parse_status(homeworks[0])
-                try:
-                    send_message(bot, message)
-                except Exception as send_error:
-                    logging.error(f"Ошибка отправки сообщения: {send_error}")
-
-            timestamp = response.get('current_date', timestamp)
-
+                send_message(bot, message)
+                timestamp = response.get('current_date', timestamp)
         except Exception as e:
             error_message = BOT_ERROR_MESSAGE.format(error=e)
             logging.exception(error_message)
-
             if last_msg != error_message:
-                try:
-                    bot.send_message(TELEGRAM_CHAT_ID, error_message)
-                    last_msg = error_message
-                except Exception as send_error:
-                    logging.error(
-                        f"Ошибка отправки сообщения об ошибке: {send_error}")
-
+                notify_error(bot, error_message)
+                last_msg = error_message
         finally:
             time.sleep(RETRY_PERIOD)
 
 
 if __name__ == '__main__':
-
     logging.basicConfig(
         level=logging.INFO,
         format='%(asctime)s - %(levelname)s - %(name)s - %(message)s',
