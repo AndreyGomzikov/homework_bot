@@ -22,11 +22,6 @@ API_REQUEST_ERROR = (
     'Ошибка при запросе к API: {error}. '
     'Параметры запроса: URL={url}, headers={headers}, params={params}'
 )
-SERVICE_UNAVAILABLE = (
-    'Сервис недоступен (503) от {url}. '
-    'Заголовки: {headers}, Параметры: {params}. '
-    'Текст ответа: {response_text}...'
-)
 INVALID_STATUS_CODE = (
     'Неверный статус-код {code} от {url}. '
     'Заголовки: {headers}, Параметры: {params}. '
@@ -65,12 +60,13 @@ HOMEWORK_VERDICTS = {
     'rejected': 'Работа проверена: у ревьюера есть замечания.',
 }
 
+REQUIRED_TOKENS = ['PRACTICUM_TOKEN', 'TELEGRAM_TOKEN', 'TELEGRAM_CHAT_ID']
+
 
 def check_tokens():
     """Проверяет доступность переменных окружения и вызывает исключение."""
-    required_tokens = ['PRACTICUM_TOKEN', 'TELEGRAM_TOKEN', 'TELEGRAM_CHAT_ID']
     missing_tokens = [
-        name for name in required_tokens
+        name for name in REQUIRED_TOKENS
         if not globals().get(name)
     ]
     if missing_tokens:
@@ -98,10 +94,7 @@ def get_api_answer(timestamp):
         'params': {'from_date': timestamp}
     }
 
-    logging.debug(API_REQUEST_START.format(
-        url=request_info['url'],
-        headers=request_info['headers']
-    ))
+    logging.debug(API_REQUEST_START.format(**request_info))
 
     try:
         response = requests.get(**request_info)
@@ -127,9 +120,8 @@ def get_api_answer(timestamp):
         if key in api_data:
             detail = f"{key}: {api_data.get(key)}"
             error_message = API_RETURNED_ERROR.format(
-                url=request_info['url'],
-                headers=request_info['headers'],
-                details=detail
+                details=detail,
+                **request_info
             )
             raise RuntimeError(error_message)
 
@@ -138,18 +130,21 @@ def get_api_answer(timestamp):
 
 def check_response(response):
     """Проверяет ответ API на соответствие документации."""
-    def raise_type_error(message, obj_type):
-        raise TypeError(f'{message}. Получен тип: {obj_type.__name__}')
-
     if not isinstance(response, dict):
-        raise_type_error(RESPONSE_NOT_DICT_ERROR, type(response))
+        raise TypeError(
+            f'{RESPONSE_NOT_DICT_ERROR}. '
+            f'Получен тип: {type(response).__name__}'
+        )
 
     if 'homeworks' not in response:
         raise ValueError(NO_HOMEWORKS_KEY_ERROR)
 
     homeworks = response['homeworks']
     if not isinstance(homeworks, list):
-        raise_type_error(HOMEWORKS_NOT_LIST_ERROR, type(homeworks))
+        raise TypeError(
+            f'{HOMEWORKS_NOT_LIST_ERROR}. '
+            f'Получен тип: {type(homeworks).__name__}'
+        )
 
     return homeworks
 
@@ -174,20 +169,12 @@ def parse_status(homework):
     )
 
 
-def notify_error(bot, error_message):
-    """Отправляет сообщение об ошибке и логирует ошибки."""
-    try:
-        bot.send_message(TELEGRAM_CHAT_ID, error_message)
-    except Exception as send_error:
-        logging.error(MESSAGE_SEND_ERROR_DETAIL.format(error=send_error))
-
-
 def main():
     """Основная логика работы бота."""
     check_tokens()
     bot = TeleBot(TELEGRAM_TOKEN)
     timestamp = int(time.time() - 2678400)
-    last_msg = None
+    last_message = None
 
     while True:
         try:
@@ -195,14 +182,14 @@ def main():
             homeworks = check_response(response)
             if homeworks:
                 message = parse_status(homeworks[0])
-                send_message(bot, message)
-                timestamp = response.get('current_date', timestamp)
+                if send_message(bot, message):
+                    timestamp = response.get('current_date', timestamp)
         except Exception as e:
             error_message = BOT_ERROR_MESSAGE.format(error=e)
             logging.exception(error_message)
-            if last_msg != error_message:
-                notify_error(bot, error_message)
-                last_msg = error_message
+            if last_message != error_message:
+                if send_message(bot, error_message):
+                    last_message = error_message
         finally:
             time.sleep(RETRY_PERIOD)
 
