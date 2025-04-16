@@ -92,12 +92,6 @@ def send_message(bot, message):
 def get_api_answer(timestamp):
     """Делает запрос к единственному эндпоинту API-сервиса."""
     params = {'from_date': timestamp}
-    request_info = {
-        'url': ENDPOINT,
-        'headers': HEADERS,
-        'params': params
-    }
-
     logging.debug(
         f'Начинаем запрос к API: URL: {ENDPOINT}, '
         f'Заголовки: {HEADERS}, Параметры: {params}'
