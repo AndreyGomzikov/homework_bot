@@ -70,8 +70,9 @@ def check_tokens():
     """Проверяет доступность переменных окружения и вызывает исключение."""
     required_tokens = ['PRACTICUM_TOKEN', 'TELEGRAM_TOKEN', 'TELEGRAM_CHAT_ID']
     missing_tokens = [
-        name for name in required_tokens if not globals().get(name)
-        ]
+    name for name in required_tokens 
+    if not globals().get(name)
+    ]
     if missing_tokens:
         message = MISSING_TOKENS.format(tokens=missing_tokens)
         logging.critical(message)
@@ -106,8 +107,11 @@ def get_api_answer(timestamp):
         response = requests.get(**request_info)
     except requests.RequestException as error:
         raise ConnectionError(
-            API_REQUEST_ERROR.format(error=error, **request_info)
+            API_REQUEST_ERROR.format(
+                error=error,
+                **request_info
             )
+        )
 
     if response.status_code != HTTPStatus.OK:
         error_message = INVALID_STATUS_CODE.format(
