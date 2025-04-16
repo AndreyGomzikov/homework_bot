@@ -40,7 +40,7 @@ MESSAGE_SENT_SUCCESS = 'Сообщение успешно отправлено �
 MESSAGE_SEND_ERROR_DETAIL = 'Ошибка отправки сообщения в Telegram: {error}'
 
 SEND_MESSAGE_ATTEMPT = 'Попытка отправки сообщения в Telegram: {message}'
-API_REQUEST_START = 'Начинаем запрос к API: URL: {url}, Заголовки: {headers}'
+API_REQUEST_START = 'Начинаем запрос к API: URL: {url}, Заголовки: {headers} Параметры: {params}'
 NO_HOMEWORK_CHANGES = 'Нет изменений в статусе домашних работ.'
 REQUEST_PARAMETERS = 'Параметры: {params}'
 MESSAGE_SEND_ERROR = 'Ошибка при отправке сообщения об ошибке'
@@ -88,40 +88,47 @@ def send_message(bot, message):
 
 def get_api_answer(timestamp):
     """Делает запрос к единственному эндпоинту API-сервиса."""
+    params = {'from_date': timestamp}
     request_info = {
         'url': ENDPOINT,
         'headers': HEADERS,
-        'params': {'from_date': timestamp}
+        'params': params
     }
 
-    logging.debug(API_REQUEST_START.format(**request_info))
+    logging.debug(
+        f'Начинаем запрос к API: URL: {ENDPOINT}, '
+        f'Заголовки: {HEADERS}, Параметры: {params}'
+    )
 
     try:
-        response = requests.get(**request_info)
+        response = requests.get(ENDPOINT, headers=HEADERS, params=params)
     except requests.RequestException as error:
         raise ConnectionError(
             API_REQUEST_ERROR.format(
                 error=error,
-                **request_info
+                url=ENDPOINT,
+                headers=HEADERS,
+                params=params
             )
         )
 
     if response.status_code != HTTPStatus.OK:
         error_message = INVALID_STATUS_CODE.format(
             code=response.status_code,
-            response_text=response.text[:200],
-            **request_info
+            url=ENDPOINT,
+            headers=HEADERS,
+            params=params,
         )
-        raise ConnectionError(error_message)
 
     api_data = response.json()
 
     for key in ('code', 'error'):
         if key in api_data:
-            detail = f"{key}: {api_data.get(key)}"
             error_message = API_RETURNED_ERROR.format(
-                details=detail,
-                **request_info
+                key=key,
+                value=api_data.get(key),
+                url=ENDPOINT,
+                headers=HEADERS
             )
             raise RuntimeError(error_message)
 
@@ -132,8 +139,7 @@ def check_response(response):
     """Проверяет ответ API на соответствие документации."""
     if not isinstance(response, dict):
         raise TypeError(
-            f'{RESPONSE_NOT_DICT_ERROR}. '
-            f'Получен тип: {type(response).__name__}'
+            f'{RESPONSE_NOT_DICT_ERROR}. Получен тип: {type(response).__name__}'
         )
 
     if 'homeworks' not in response:
@@ -142,8 +148,7 @@ def check_response(response):
     homeworks = response['homeworks']
     if not isinstance(homeworks, list):
         raise TypeError(
-            f'{HOMEWORKS_NOT_LIST_ERROR}. '
-            f'Получен тип: {type(homeworks).__name__}'
+            f'{HOMEWORKS_NOT_LIST_ERROR}. Получен тип: {type(homeworks).__name__}'
         )
 
     return homeworks
@@ -182,14 +187,13 @@ def main():
             homeworks = check_response(response)
             if homeworks:
                 message = parse_status(homeworks[0])
-                if send_message(bot, message):
-                    timestamp = response.get('current_date', timestamp)
+                send_message(bot, message)
+                timestamp = response.get('current_date', timestamp)
         except Exception as e:
             error_message = BOT_ERROR_MESSAGE.format(error=e)
             logging.exception(error_message)
             if last_message != error_message:
-                if send_message(bot, error_message):
-                    last_message = error_message
+                send_message(bot, error_message)
         finally:
             time.sleep(RETRY_PERIOD)
 
