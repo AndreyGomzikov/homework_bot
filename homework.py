@@ -94,27 +94,27 @@ def send_message(bot, message):
 
 def get_api_answer(timestamp):
     """Делает запрос к единственному эндпоинту API-сервиса."""
-    logging_data = {
+    request_params = {
         'url': ENDPOINT,
         'headers': HEADERS,
         'params': {'from_date': timestamp}
     }
-    logging.debug(API_REQUEST_START.format(**logging_data))
+    logging.debug(API_REQUEST_START.format(**request_params))
 
     try:
-        response = requests.get(**logging_data)
+        response = requests.get(**request_params)
     except requests.RequestException as error:
         raise ConnectionError(
             API_REQUEST_ERROR.format(
                 error=error,
-                **logging_data
+                **request_params
             )
         )
 
     if response.status_code != HTTPStatus.OK:
         error_message = INVALID_STATUS_CODE.format(
             code=response.status_code,
-            **logging_data
+            **request_params
         )
         raise RuntimeError(error_message)
 
@@ -123,8 +123,9 @@ def get_api_answer(timestamp):
     for key in ('code', 'error'):
         if key in api_data:
             error_message = API_RETURNED_ERROR.format(
-                details=f"{key}: {api_data.get(key)}",
-                **logging_data
+                key=key,
+                value=api_data.get(key),
+                **request_params
             )
             raise RuntimeError(error_message)
 
@@ -156,16 +157,16 @@ def parse_status(homework):
         raise KeyError(NO_HOMEWORK_NAME_ERROR)
     if 'status' not in homework:
         raise KeyError(NO_STATUS_ERROR)
-    homework_status = homework['status']
-    if homework_status not in HOMEWORK_VERDICTS:
+    homeworkstatus = homework['status']
+    if homeworkstatus not in HOMEWORK_VERDICTS:
         raise ValueError(
             INVALID_STATUS.format(
-                status=homework_status,
+                status=homeworkstatus,
             )
         )
     return STATUS_CHANGE.format(
         name=homework['homework_name'],
-        verdict=HOMEWORK_VERDICTS[homework_status]
+        verdict=HOMEWORK_VERDICTS[homeworkstatus]
     )
 
 
@@ -191,8 +192,8 @@ def main():
             logging.exception(error_message)
 
             if error_message != last_error_message:
-                send_message(bot, error_message)
-                last_error_message = error_message
+                if send_message(bot, error_message):
+                    last_error_message = error_message
 
         time.sleep(RETRY_PERIOD)
 
