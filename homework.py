@@ -36,7 +36,6 @@ API_RETURNED_ERROR = (
 STATUS_CHANGE = 'Изменился статус проверки работы "{name}". {verdict}'
 INVALID_STATUS = (
     'Неизвестный статус домашней работы: "{status}". '
-    'Допустимые статусы: {valid_statuses}'
 )
 MESSAGE_SENT_SUCCESS = 'Сообщение успешно отправлено в Telegram: {message}'
 MESSAGE_SEND_ERROR_DETAIL = 'Ошибка отправки сообщения в Telegram: {error}'
@@ -123,9 +122,9 @@ def get_api_answer(timestamp):
     for key in ('code', 'error'):
         if key in api_data:
             error_message = API_RETURNED_ERROR.format(
-                key=key,
-                value=api_data.get(key),
-                **request_params
+                details=f"{key}: {api_data.get(key)}",
+                url=ENDPOINT,
+                headers=HEADERS
             )
             raise RuntimeError(error_message)
 
@@ -157,16 +156,16 @@ def parse_status(homework):
         raise KeyError(NO_HOMEWORK_NAME_ERROR)
     if 'status' not in homework:
         raise KeyError(NO_STATUS_ERROR)
-    homeworkstatus = homework['status']
-    if homeworkstatus not in HOMEWORK_VERDICTS:
+    status = homework['status']
+    if status not in HOMEWORK_VERDICTS:
         raise ValueError(
             INVALID_STATUS.format(
-                status=homeworkstatus,
+                status=status,
             )
         )
     return STATUS_CHANGE.format(
         name=homework['homework_name'],
-        verdict=HOMEWORK_VERDICTS[homeworkstatus]
+        verdict=HOMEWORK_VERDICTS[status]
     )
 
 
@@ -191,9 +190,8 @@ def main():
             error_message = BOT_ERROR_MESSAGE.format(error=e)
             logging.exception(error_message)
 
-            if error_message != last_error_message:
-                if send_message(bot, error_message):
-                    last_error_message = error_message
+            if error_message != last_error_message and send_message(bot, error_message):
+                last_error_message = error_message
 
         time.sleep(RETRY_PERIOD)
 
