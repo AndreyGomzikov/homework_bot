@@ -178,7 +178,6 @@ def main():
     check_tokens()
     bot = TeleBot(TELEGRAM_TOKEN)
     timestamp = int(time.time())
-    last_error_message = None
 
     while True:
         try:
