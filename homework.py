@@ -190,7 +190,8 @@ def main():
             error_message = BOT_ERROR_MESSAGE.format(error=e)
             logging.exception(error_message)
 
-            if error_message != last_error_message and send_message(bot, error_message):
+            if (error_message != last_error_message 
+                and send_message(bot, error_message)):
                 last_error_message = error_message
 
         time.sleep(RETRY_PERIOD)
