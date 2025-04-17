@@ -94,16 +94,15 @@ def send_message(bot, message):
 
 def get_api_answer(timestamp):
     """Делает запрос к единственному эндпоинту API-сервиса."""
-    params = {'from_date': timestamp}
     logging_data = {
         'url': ENDPOINT,
         'headers': HEADERS,
-        'params': params
+        'params': {'from_date': timestamp}
     }
     logging.debug(API_REQUEST_START.format(**logging_data))
 
     try:
-        response = requests.get(ENDPOINT, headers=HEADERS, params=params)
+        response = requests.get(**logging_data)
     except requests.RequestException as error:
         raise ConnectionError(
             API_REQUEST_ERROR.format(
@@ -124,13 +123,10 @@ def get_api_answer(timestamp):
     for key in ('code', 'error'):
         if key in api_data:
             error_message = API_RETURNED_ERROR.format(
-                details=api_data.get(key),
+                details=f"{key}: {api_data.get(key)}",
                 **logging_data
             )
             raise RuntimeError(error_message)
-
-    if 'current_date' not in api_data:
-        raise KeyError('В ответе API отсутствует ключ current_date')
 
     return api_data
 
@@ -143,7 +139,7 @@ def check_response(response):
         )
 
     if 'homeworks' not in response:
-        raise ValueError(NO_HOMEWORKS_KEY_ERROR)
+        raise KeyError(NO_HOMEWORKS_KEY_ERROR)
 
     homeworks = response['homeworks']
     if not isinstance(homeworks, list):
@@ -178,22 +174,28 @@ def main():
     check_tokens()
     bot = TeleBot(TELEGRAM_TOKEN)
     timestamp = int(time.time())
+    last_error_message = None
 
     while True:
         try:
             response = get_api_answer(timestamp)
             homeworks = check_response(response)
             if homeworks:
-                message = parse_status(homeworks[0])
-                if send_message(bot, message):
+                if send_message(bot, parse_status(homeworks[0])):
                     timestamp = response.get('current_date', timestamp)
-
             else:
                 logging.info(NO_HOMEWORK_CHANGES)
+
         except Exception as e:
             error_message = BOT_ERROR_MESSAGE.format(error=e)
             logging.exception(error_message)
+
+            if error_message != last_error_message:
+                send_message(bot, error_message)
+                last_error_message = error_message
+
         time.sleep(RETRY_PERIOD)
+
 
 
 if __name__ == '__main__':
