@@ -95,9 +95,12 @@ def send_message(bot, message):
 def get_api_answer(timestamp):
     """Делает запрос к единственному эндпоинту API-сервиса."""
     params = {'from_date': timestamp}
-    logging.debug(
-        API_REQUEST_START.format(url=ENDPOINT, headers=HEADERS, params=params)
-    )
+    logging_data = {
+        'url': ENDPOINT,
+        'headers': HEADERS,
+        'params': params
+    }
+    logging.debug(API_REQUEST_START.format(**logging_data))
 
     try:
         response = requests.get(ENDPOINT, headers=HEADERS, params=params)
@@ -105,18 +108,14 @@ def get_api_answer(timestamp):
         raise ConnectionError(
             API_REQUEST_ERROR.format(
                 error=error,
-                url=ENDPOINT,
-                headers=HEADERS,
-                params=params
+                **logging_data
             )
         )
 
     if response.status_code != HTTPStatus.OK:
         error_message = INVALID_STATUS_CODE.format(
             code=response.status_code,
-            url=ENDPOINT,
-            headers=HEADERS,
-            params=params,
+            **logging_data
         )
         raise RuntimeError(error_message)
 
@@ -126,10 +125,12 @@ def get_api_answer(timestamp):
         if key in api_data:
             error_message = API_RETURNED_ERROR.format(
                 details=api_data.get(key),
-                url=ENDPOINT,
-                headers=HEADERS
+                **logging_data
             )
             raise RuntimeError(error_message)
+
+    if 'current_date' not in api_data:
+        raise KeyError('В ответе API отсутствует ключ current_date')
 
     return api_data
 
@@ -187,16 +188,12 @@ def main():
                 message = parse_status(homeworks[0])
                 if send_message(bot, message):
                     timestamp = response.get('current_date', timestamp)
-                else:
-                    logging.warning(MESSAGE_RETRY_WARNING)
 
             else:
                 logging.info(NO_HOMEWORK_CHANGES)
         except Exception as e:
             error_message = BOT_ERROR_MESSAGE.format(error=e)
             logging.exception(error_message)
-            if error_message != last_error_message:
-                send_message(bot, error_message)
         time.sleep(RETRY_PERIOD)
 
 
