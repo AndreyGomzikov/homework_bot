@@ -10,14 +10,9 @@ from telebot import TeleBot
 
 load_dotenv()
 
-REQUEST_LOGGING = 'Заголовки: {headers}, Параметры: {params}'
 
-RESPONSE_NOT_DICT_ERROR = 'Ответ API должен быть словарем'
-NO_HOMEWORKS_KEY_ERROR = 'В ответе API нет ключа "homeworks"'
-HOMEWORKS_NOT_LIST_ERROR = 'Данные в "homeworks" должны быть списком'
-NO_HOMEWORK_NAME_ERROR = 'Отсутствует ключ "homework_name" в ответе API'
-NO_STATUS_ERROR = 'Отсутствует ключ "status" в ответе API'
-
+RESPONSE_TYPE_ERROR = 'Ответ API должен быть словарем. Получен тип: {type_name}'
+HOMEWORKS_TYPE_ERROR = 'Данные в "homeworks" должны быть списком. Получен тип: {type_name}'
 MISSING_TOKENS = 'Отсутствуют обязательные переменные окружения: {tokens}'
 API_REQUEST_ERROR = (
     'Ошибка при запросе к API: {error}. '
@@ -38,15 +33,12 @@ INVALID_STATUS = (
 )
 MESSAGE_SENT_SUCCESS = 'Сообщение успешно отправлено в Telegram: {message}'
 MESSAGE_SEND_ERROR_DETAIL = 'Ошибка отправки сообщения в Telegram: {error}'
-
 SEND_MESSAGE_ATTEMPT = 'Попытка отправки сообщения в Telegram: {message}'
 API_REQUEST_START = (
     'Начинаем запрос к API: URL: {url}, '
     'Заголовки: {headers}, Параметры: {params}'
 )
 NO_HOMEWORK_CHANGES = 'Нет изменений в статусе домашних работ.'
-REQUEST_PARAMETERS = 'Параметры: {params}'
-MESSAGE_SEND_ERROR = 'Ошибка при отправке сообщения об ошибке'
 BOT_ERROR_MESSAGE = 'Ошибка в процессе выполнения бота: {error}'
 
 PRACTICUM_TOKEN = os.getenv('PRACTICUM_TOKEN')
@@ -117,10 +109,10 @@ def get_api_answer(timestamp):
             headers=HEADERS,
             params=params,
         )
-        logging.error(error_message)
         raise RuntimeError(error_message)
 
     api_data = response.json()
+    logging.debug(f"Ответ API как JSON: {api_data}")
 
     for key in ('code', 'error'):
         if key in api_data:
@@ -129,8 +121,9 @@ def get_api_answer(timestamp):
                 url=ENDPOINT,
                 headers=HEADERS
             )
-            logging.error(error_message)
             raise RuntimeError(error_message)
+
+    logging.debug(f"Все параметры запроса: {params}")
 
     return api_data
 
@@ -139,8 +132,7 @@ def check_response(response):
     """Проверяет ответ API на соответствие документации."""
     if not isinstance(response, dict):
         raise TypeError(
-            f'{RESPONSE_NOT_DICT_ERROR}. '
-            f'Получен тип: {type(response).__name__}'
+            RESPONSE_TYPE_ERROR.format(type_name=type(response).__name__)
         )
 
     if 'homeworks' not in response:
@@ -149,8 +141,7 @@ def check_response(response):
     homeworks = response['homeworks']
     if not isinstance(homeworks, list):
         raise TypeError(
-            f'{HOMEWORKS_NOT_LIST_ERROR}. '
-            f'Получен тип: {type(homeworks).__name__}'
+            HOMEWORKS_TYPE_ERROR.format(type_name=type(homeworks).__name__)
         )
 
     return homeworks
@@ -167,7 +158,6 @@ def parse_status(homework):
         raise ValueError(
             INVALID_STATUS.format(
                 status=homework_status,
-                valid_statuses=', '.join(HOMEWORK_VERDICTS.keys())
             )
         )
     return STATUS_CHANGE.format(
@@ -181,6 +171,7 @@ def main():
     check_tokens()
     bot = TeleBot(TELEGRAM_TOKEN)
     timestamp = int(time.time() - 2678400)
+    last_error_message = None
 
     while True:
         try:
@@ -200,8 +191,10 @@ def main():
                 logging.info(NO_HOMEWORK_CHANGES)
         except Exception as e:
             error_message = BOT_ERROR_MESSAGE.format(error=e)
-            logging.exception(error_message)
-            send_message(bot, error_message)
+            if error_message != last_error_message:
+                logging.exception(error_message)
+                send_message(bot, error_message)
+                last_error_message = error_message
         time.sleep(RETRY_PERIOD)
 
 
