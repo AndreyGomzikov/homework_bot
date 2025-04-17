@@ -47,6 +47,9 @@ API_REQUEST_START = (
 )
 NO_HOMEWORK_CHANGES = 'Нет изменений в статусе домашних работ.'
 BOT_ERROR_MESSAGE = 'Ошибка в процессе выполнения бота: {error}'
+MESSAGE_RETRY_WARNING = (
+    'Ошибка отправки сообщения, повторная попытка.'
+)
 
 PRACTICUM_TOKEN = os.getenv('PRACTICUM_TOKEN')
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
@@ -98,7 +101,6 @@ def get_api_answer(timestamp):
 
     try:
         response = requests.get(ENDPOINT, headers=HEADERS, params=params)
-        logging.debug(f'Ответ API: {response.text}')
     except requests.RequestException as error:
         raise ConnectionError(
             API_REQUEST_ERROR.format(
@@ -119,8 +121,7 @@ def get_api_answer(timestamp):
         raise RuntimeError(error_message)
 
     api_data = response.json()
-    logging.debug(f"Ответ API как JSON: {api_data}")
-
+    
     for key in ('code', 'error'):
         if key in api_data:
             error_message = API_RETURNED_ERROR.format(
@@ -129,8 +130,6 @@ def get_api_answer(timestamp):
                 headers=HEADERS
             )
             raise RuntimeError(error_message)
-
-    logging.debug(f"Все параметры запроса: {params}")
 
     return api_data
 
@@ -177,7 +176,7 @@ def main():
     """Основная логика работы бота."""
     check_tokens()
     bot = TeleBot(TELEGRAM_TOKEN)
-    timestamp = int(time.time() - 2678400)
+    timestamp = int(time.time())
     last_error_message = None
 
     while True:
@@ -189,19 +188,15 @@ def main():
                 if send_message(bot, message):
                     timestamp = response.get('current_date', timestamp)
                 else:
-                    logging.warning(
-                        "Ошибка отправки сообщения, "
-                        "повторная попытка через 10 минут."
-                    )
+                    logging.warning(MESSAGE_RETRY_WARNING)
 
             else:
                 logging.info(NO_HOMEWORK_CHANGES)
         except Exception as e:
             error_message = BOT_ERROR_MESSAGE.format(error=e)
+            logging.exception(error_message)
             if error_message != last_error_message:
-                logging.exception(error_message)
                 send_message(bot, error_message)
-                last_error_message = error_message
         time.sleep(RETRY_PERIOD)
 
 
