@@ -121,7 +121,7 @@ def get_api_answer(timestamp):
         raise RuntimeError(error_message)
 
     api_data = response.json()
-    
+
     for key in ('code', 'error'):
         if key in api_data:
             error_message = API_RETURNED_ERROR.format(
