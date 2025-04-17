@@ -93,7 +93,9 @@ def send_message(bot, message):
 def get_api_answer(timestamp):
     """Делает запрос к единственному эндпоинту API-сервиса."""
     params = {'from_date': timestamp}
-    logging.debug(API_REQUEST_START.format(url=ENDPOINT, headers=HEADERS, params=params))
+    logging.debug(
+        API_REQUEST_START.format(url=ENDPOINT, headers=HEADERS, params=params)
+        )
 
     try:
         response = requests.get(ENDPOINT, headers=HEADERS, params=params)
@@ -179,7 +181,6 @@ def main():
     check_tokens()
     bot = TeleBot(TELEGRAM_TOKEN)
     timestamp = int(time.time() - 2678400)
-    last_message = None
 
     while True:
         try:
@@ -190,7 +191,9 @@ def main():
                 if send_message(bot, message):
                     timestamp = response.get('current_date', timestamp)
                 else:
-                    logging.warning("Ошибка отправки сообщения, повторная попытка через 10 минут.")
+                    logging.warning(
+                        "Ошибка отправки сообщения, повторная попытка через 10 минут."
+                        )
             else:
                 logging.info(NO_HOMEWORK_CHANGES)
         except Exception as e:
