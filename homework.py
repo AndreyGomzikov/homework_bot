@@ -10,6 +10,7 @@ from telebot import TeleBot
 
 load_dotenv()
 
+REQUEST_LOGGING = 'Заголовки: {headers}, Параметры: {params}'
 
 RESPONSE_NOT_DICT_ERROR = 'Ответ API должен быть словарем'
 NO_HOMEWORKS_KEY_ERROR = 'В ответе API нет ключа "homeworks"'
@@ -20,12 +21,11 @@ NO_STATUS_ERROR = 'Отсутствует ключ "status" в ответе API'
 MISSING_TOKENS = 'Отсутствуют обязательные переменные окружения: {tokens}'
 API_REQUEST_ERROR = (
     'Ошибка при запросе к API: {error}. '
-    'Параметры запроса: URL={url}, headers={headers}, params={params}'
+    'Параметры запроса: URL={url}, заголовки={headers}, параметры={params}'
 )
 INVALID_STATUS_CODE = (
     'Неверный статус-код {code} от {url}. '
-    'Заголовки: {headers}, Параметры: {params}. '
-    'Текст ответа: {response_text}...'
+    'Заголовки: {headers}, Параметры: {params}.'
 )
 API_RETURNED_ERROR = (
     'API вернул ошибку: {details}. '
@@ -86,19 +86,19 @@ def send_message(bot, message):
         logging.debug(MESSAGE_SENT_SUCCESS.format(message=message))
     except Exception as error:
         logging.error(MESSAGE_SEND_ERROR_DETAIL.format(error=error))
-        raise
+        # Бот не останавливается на ошибке отправки
+        return False  # Возвращаем False в случае ошибки
+    return True  # Возвращаем True, если сообщение успешно отправлено
 
 
 def get_api_answer(timestamp):
     """Делает запрос к единственному эндпоинту API-сервиса."""
     params = {'from_date': timestamp}
-    logging.debug(
-        f'Начинаем запрос к API: URL: {ENDPOINT}, '
-        f'Заголовки: {HEADERS}, Параметры: {params}'
-    )
+    logging.debug(API_REQUEST_START.format(url=ENDPOINT, headers=HEADERS, params=params))
 
     try:
         response = requests.get(ENDPOINT, headers=HEADERS, params=params)
+        logging.debug(f'Ответ API: {response.text}')  # Добавлено логирование полного ответа
     except requests.RequestException as error:
         raise ConnectionError(
             API_REQUEST_ERROR.format(
@@ -116,17 +116,19 @@ def get_api_answer(timestamp):
             headers=HEADERS,
             params=params,
         )
+        logging.error(error_message)
+        raise RuntimeError(error_message)
 
     api_data = response.json()
 
     for key in ('code', 'error'):
         if key in api_data:
             error_message = API_RETURNED_ERROR.format(
-                key=key,
-                value=api_data.get(key),
+                details=api_data.get(key),
                 url=ENDPOINT,
                 headers=HEADERS
             )
+            logging.error(error_message)
             raise RuntimeError(error_message)
 
     return api_data
@@ -186,15 +188,17 @@ def main():
             homeworks = check_response(response)
             if homeworks:
                 message = parse_status(homeworks[0])
-                send_message(bot, message)
-                timestamp = response.get('current_date', timestamp)
+                if send_message(bot, message):
+                    timestamp = response.get('current_date', timestamp)
+                else:
+                    logging.warning("Ошибка отправки сообщения, повторная попытка через 10 минут.")
+            else:
+                logging.info(NO_HOMEWORK_CHANGES)
         except Exception as e:
             error_message = BOT_ERROR_MESSAGE.format(error=e)
             logging.exception(error_message)
-            if last_message != error_message:
-                send_message(bot, error_message)
-        finally:
-            time.sleep(RETRY_PERIOD)
+            send_message(bot, error_message)
+        time.sleep(RETRY_PERIOD)
 
 
 if __name__ == '__main__':
