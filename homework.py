@@ -95,7 +95,7 @@ def get_api_answer(timestamp):
     params = {'from_date': timestamp}
     logging.debug(
         API_REQUEST_START.format(url=ENDPOINT, headers=HEADERS, params=params)
-        )
+    )
 
     try:
         response = requests.get(ENDPOINT, headers=HEADERS, params=params)
@@ -193,7 +193,8 @@ def main():
                 else:
                     logging.warning(
                         "Ошибка отправки сообщения, повторная попытка через 10 минут."
-                        )
+                    )
+
             else:
                 logging.info(NO_HOMEWORK_CHANGES)
         except Exception as e:
