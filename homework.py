@@ -192,7 +192,8 @@ def main():
                     timestamp = response.get('current_date', timestamp)
                 else:
                     logging.warning(
-                        "Ошибка отправки сообщения, повторная попытка через 10 минут."
+                        "Ошибка отправки сообщения, "
+                        "повторная попытка через 10 минут."
                     )
 
             else:
