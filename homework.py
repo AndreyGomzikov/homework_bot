@@ -86,9 +86,8 @@ def send_message(bot, message):
         logging.debug(MESSAGE_SENT_SUCCESS.format(message=message))
     except Exception as error:
         logging.error(MESSAGE_SEND_ERROR_DETAIL.format(error=error))
-        # Бот не останавливается на ошибке отправки
-        return False  # Возвращаем False в случае ошибки
-    return True  # Возвращаем True, если сообщение успешно отправлено
+        return False
+    return True
 
 
 def get_api_answer(timestamp):
@@ -98,7 +97,7 @@ def get_api_answer(timestamp):
 
     try:
         response = requests.get(ENDPOINT, headers=HEADERS, params=params)
-        logging.debug(f'Ответ API: {response.text}')  # Добавлено логирование полного ответа
+        logging.debug(f'Ответ API: {response.text}')
     except requests.RequestException as error:
         raise ConnectionError(
             API_REQUEST_ERROR.format(
