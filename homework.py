@@ -12,7 +12,10 @@ load_dotenv()
 
 
 RESPONSE_TYPE_ERROR = 'Ответ API должен быть словарем. Получен тип: {type_name}'
+NO_HOMEWORKS_KEY_ERROR = 'В ответе API нет ключа "homeworks"'
 HOMEWORKS_TYPE_ERROR = 'Данные в "homeworks" должны быть списком. Получен тип: {type_name}'
+NO_HOMEWORK_NAME_ERROR = 'Отсутствует ключ "homework_name" в ответе API'
+NO_STATUS_ERROR = 'Отсутствует ключ "status" в ответе API'
 MISSING_TOKENS = 'Отсутствуют обязательные переменные окружения: {tokens}'
 API_REQUEST_ERROR = (
     'Ошибка при запросе к API: {error}. '
